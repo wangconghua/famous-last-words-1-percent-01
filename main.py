@@ -29,15 +29,17 @@ BANNED_PHRASES = (
     "farewell, charger",
 )
 
+# Words that explain the joke instead of landing it.
+SELF_EXPLAINING = ("funny", "joke", "haha", "lol", "hilarious")
+
 # The phone's own dying-battery voice: a battery mention plus a
 # first-person claim of its own.
 BATTERY_WORDS = ("battery", "1%", "percent", "power")
 PHONE_VOICE = ("i ", "i'm", "i've", "my ")
 
 
-def validate(line):
-    """Gate plus the judge brief, enforced before the line is written."""
-    # Gate: 1-199 characters, not only white space, single line.
+def _check_gate(line):
+    """The competition gate: length, shape, and encoding."""
     if not 1 <= len(line) <= 199:
         raise ValueError(f"line is {len(line)} chars, must be 1-199")
     if not line.strip():
@@ -48,19 +50,44 @@ def validate(line):
         raise ValueError("line must have no leading or trailing whitespace")
     if "  " in line:
         raise ValueError("line must have no double spaces")
-    # The phone itself talking about its own dying battery.
+    line.encode("utf-8")  # gate requires UTF-8 text; fail loudly if not
+
+
+def _check_voice(line):
+    """The phone itself talking about its own dying battery."""
     lowered = line.lower()
     if not any(word in lowered for word in BATTERY_WORDS):
         raise ValueError("line must name its own dying battery")
     if not any(word in lowered for word in PHONE_VOICE):
         raise ValueError("line must speak in the phone's own voice")
-    # The joke must turn: a setup sentence and a punch sentence.
+
+
+def _check_turn(line):
+    """The joke must turn: a setup sentence, then a punch sentence."""
     if ". " not in line:
         raise ValueError("line must carry a turn: setup, then punch")
-    # No stock move of the genre: no will, no charger goodbye, no 1% pun.
+    setup, punch = line.split(". ", 1)
+    if not setup or not punch:
+        raise ValueError("line must carry a turn: setup, then punch")
+
+
+def _check_stock(line):
+    """No stock move of the genre, and no explaining the joke."""
+    lowered = line.lower()
     for phrase in BANNED_PHRASES:
         if phrase in lowered:
             raise ValueError(f"line uses stock material: {phrase!r}")
+    for word in SELF_EXPLAINING:
+        if word in lowered:
+            raise ValueError(f"line explains its own joke: {word!r}")
+
+
+def validate(line):
+    """Gate plus the judge brief, enforced before the line is written."""
+    _check_gate(line)
+    _check_voice(line)
+    _check_turn(line)
+    _check_stock(line)
     return line
 
 
